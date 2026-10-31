@@ -70,5 +70,5 @@ streamlit run app.py
 ## Project Goal
 The goal of this project is to demonstrate how deep learning and image embeddings can be applied to fashion search and outfit recommendation.
 
-## Author
+## Authors
 Keerthi kalakata, Rishitha Gaddam, Sai Surya Siddhardha Seera
