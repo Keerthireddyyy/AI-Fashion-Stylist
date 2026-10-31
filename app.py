@@ -238,15 +238,19 @@ for category in selected_categories:
     st.write("•", category)
 
 
+
+# Fashion Search - Complete Color-Based Outfit Recommendation
+
 st.header("🔍 Search Fashion Items")
 
 fashion_query = st.text_input(
-    "What fashion item or color are you looking for?",
-    placeholder="Example: blue dress, lavender outfit, red shoes"
+    "What color or style outfit are you looking for?",
+    placeholder="Example: red outfit, blue casual outfit, pink party outfit"
 )
 
 if fashion_query:
 
+    # Load the CLIP model
     @st.cache_resource
     def load_clip_model():
 
@@ -260,6 +264,7 @@ if fashion_query:
 
         return model, processor
 
+    # Load fashion images and their embeddings
     @st.cache_data
     def load_fashion_data():
 
@@ -269,73 +274,125 @@ if fashion_query:
             weights_only=False
         )
 
-        return (
-            data["image_embeddings"],
-            data["item_ids"]
+        return data["image_embeddings"], data["item_ids"]
+
+    # Load fashion categories
+    @st.cache_data
+    def load_fashion_categories():
+
+        return pd.read_csv(
+            "fashion_search_data/fashion_categories.csv"
         )
 
     model, processor = load_clip_model()
 
     image_embeddings, item_ids = load_fashion_data()
 
-    inputs = processor(
-        text=[fashion_query],
-        return_tensors="pt",
-        padding=True
+    fashion_categories = load_fashion_categories()
+
+    # Convert item IDs to strings
+    item_ids = [str(item_id) for item_id in item_ids]
+
+    # Match item IDs with their categories
+    category_lookup = dict(
+        zip(
+            fashion_categories["item_id"].astype(str),
+            fashion_categories["category"]
+        )
     )
 
-    with torch.no_grad():
-
-        text_features = model.get_text_features(**inputs)
-
-        text_features = text_features / text_features.norm(
-            dim=-1,
-            keepdim=True
-        )
+    # Normalize image embeddings
+    image_embeddings = image_embeddings.float()
 
     image_embeddings = image_embeddings / image_embeddings.norm(
         dim=-1,
         keepdim=True
     )
 
-    similarities = (
-        text_features @ image_embeddings.T
-    ).squeeze(0)
+    # Outfit categories selected above
+    selected_categories = outfit_templates[outfit_type]
 
-    top_indices = torch.topk(
-        similarities,
-        k=5
-    ).indices.tolist()
+    st.subheader(f"Complete Outfit for: {fashion_query}")
 
-    st.subheader(f"Results for: {fashion_query}")
+    st.write("Your outfit includes:")
 
-    result_columns = st.columns(5)
+    for category in selected_categories:
+        st.write("•", category)
 
-    for position, index in enumerate(top_indices):
+    result_columns = st.columns(len(selected_categories))
 
-        item_id = str(item_ids[index])
+    # Search separately for each clothing category
+    for position, category in enumerate(selected_categories):
 
-        image_path = f"images/{item_id}.jpg"
+        # Create a text prompt using the user's color/style and category
+        category_prompt = f"{fashion_query}, {category}, fashion item"
+
+        inputs = processor(
+            text=[category_prompt],
+            return_tensors="pt",
+            padding=True
+        )
+
+        # Get text embedding
+        with torch.no_grad():
+
+            text_features = model.get_text_features(**inputs)
+
+            text_features = text_features / text_features.norm(
+                dim=-1,
+                keepdim=True
+            )
+
+        # Calculate similarity with all fashion images
+        similarities = (
+            text_features @ image_embeddings.T
+        ).squeeze(0)
+
+        # Find images belonging to this category
+        category_indices = [
+            index
+            for index, item_id in enumerate(item_ids)
+            if category_lookup.get(item_id) == category
+        ]
 
         with result_columns[position]:
 
-            if os.path.exists(image_path):
+            st.markdown(f"**{category}**")
 
-                st.image(
-                    image_path,
-                    use_container_width=True
-                )
+            if category_indices:
 
-                st.caption(f"Item ID: {item_id}")
+                # Find the best matching item in this category
+                category_scores = similarities[category_indices]
 
-                st.caption(
-                    f"Match: {similarities[index].item():.3f}"
-                )
+                best_position = torch.argmax(category_scores).item()
+
+                best_index = category_indices[best_position]
+
+                item_id = item_ids[best_index]
+
+                image_path = f"images/{item_id}.jpg"
+
+                if os.path.exists(image_path):
+
+                    st.image(
+                        image_path,
+                        use_container_width=True
+                    )
+
+                    st.caption(f"Item ID: {item_id}")
+
+                    st.caption(
+                        f"Match: {similarities[best_index].item():.3f}"
+                    )
+
+                else:
+
+                    st.warning("Fashion image not found.")
 
             else:
 
                 st.warning(
-                    f"Image not found: {item_id}"
+                    f"No items found for category: {category}"
                 )
 
 st.write(
