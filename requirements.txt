@@ -4,4 +4,4 @@ matplotlib
 torch
 torchvision
 Pillow
-transformers
+transformers==4.57.6
