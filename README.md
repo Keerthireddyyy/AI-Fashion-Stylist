@@ -29,7 +29,13 @@ The project combines image-based fashion search with outfit compatibility predic
 - `images/` – Fashion item images
 - `requirements.txt` – Project dependencies
 
-## How to Run
+## 🚀 Live Demo
+
+Explore the Outfit Explorer application directly in your browser:
+
+https://outfit-explorer.streamlit.app/
+
+## 💻 Run Locally (Optional)
 
 ### 1. Clone the repository
 ```bash
